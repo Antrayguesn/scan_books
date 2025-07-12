@@ -1,0 +1,4 @@
+testimg/
+venv
+__pycache__
+data.json
