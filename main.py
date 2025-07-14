@@ -1,70 +1,78 @@
-import json
 import argparse
-
-import google_books_api_fetcher
 import scan_barecode
+import requests
+
+from get_plateform import is_raspberry
+
+IS_RASPBERRY = is_raspberry()
+
+if IS_RASPBERRY:
+    import RPI_signal
 
 
-def capture():
-    try:
-        with open('data.json', 'r', encoding='utf-8') as fichier:
-            donnees = json.load(fichier)
-    except FileNotFoundError:
-        donnees = {}
+def capture(dev_video, debug, show_capture):
     previous_barecode = None
 
-    debug = True
-    show_frame = debug
-
-    for frame in scan_barecode.read_from_video_capture(dev_video=2, debug=True, show_frame=True):
-        barecode = scan_barecode.detect_barecode(frame, debug=debug, show_frame=show_frame)
+    for frame in scan_barecode.read_from_video_capture(dev_video=dev_video, debug=debug, show_frame=show_capture):
+        barecode = scan_barecode.detect_barecode(frame, debug=debug, show_frame=show_capture)
         # ISBN start wih 978 or 979 | avoid some miss detection
-        if previous_barecode != barecode and barecode is not None and barecode[0] == "97":
+        if barecode and previous_barecode != barecode and barecode[:2] == "97":
             previous_barecode = barecode
-            print(barecode)
-
-            if barecode in donnees:
-                donnees[barecode]["nb_stock"] += 1
-            else:
-                donnees[barecode] = {"nb_stock": 1}
-
-            with open('data.json', 'w', encoding='utf-8') as fichier:
-                json.dump(donnees, fichier, indent=4, ensure_ascii=False)
+            yield barecode
 
 
-def fetch():
+def get_book_data(booklyb_url: str, isbn: str) -> dict:
     try:
-        with open('data.json', 'r', encoding='utf-8') as fichier:
-            donnees = json.load(fichier)
-    except FileNotFoundError:
-        donnees = {}
-
-    for isbn in donnees:
-        if "book_info" not in donnees[isbn]:
-            # Actually I use only Google Books API to fetch book information
-            # If needed to fetch from more APIs use something loke :
-            # https://github.com/Antrayguesn/search_place/blob/main/search_place/strategies/fetcher_strategy.py
-            volume_info = google_books_api_fetcher.fetch_book_information_google(isbn)
-
-            donnees[isbn]["book_info"] = volume_info
-
-            with open('data.json', 'w', encoding='utf-8') as fichier:
-                json.dump(donnees, fichier, indent=4, ensure_ascii=False)
+        ret = requests.get(f"{booklyb_url}/book_data/{isbn}")
+        return ret.json()
+    except Exception:
+        return None
 
 
 def main():
     parser = argparse.ArgumentParser(description="")
     group = parser.add_mutually_exclusive_group(required=True)
 
-    group.add_argument('--capture-from-video', action='store_true', help='Activer le mode capture par video.')
-    group.add_argument('--fetch', action='store_true', help='Activer le mode fetch.')
+    group.add_argument('-c', '--capture-from-video', action='store_true', help='Activer le mode capture par video.')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help='Active le mode verbeux.')
+    parser.add_argument('-f', '--show-capture', action='store_true', default=False, help='Ouvre une fênetre avec la capture de la video.')
+
+    parser.add_argument(
+        '-b', "--booklyb-url",
+        type=str,
+        default="http://127.0.0.1:5000",
+        help="URL du serveur de gestion de livre booklyb (par défaut: http://127.0.0.1:5000)"
+    )
+
+    parser.add_argument(
+        '-d', "--device",
+        type=str,
+        default="0",
+        help="Index ou chemin du device video (par défaut: 0, utilisé uniquement avec --capture-from-video)"
+    )
 
     args = parser.parse_args()
 
-    if args.capture:
-        capture()
-    elif args.fetch:
-        fetch()
+    if args.capture_from_video:
+
+        dev = args.device
+        debug = args.verbose
+        show_frame = args.show_capture
+
+        url_booklyb = args.booklyb_url
+
+        for barecode in capture(dev, debug, show_frame):
+            if debug:
+                print(barecode)
+            if barecode:
+                if IS_RASPBERRY:
+                    RPI_signal.beep(True)
+                book_data = get_book_data(url_booklyb, barecode)
+                if IS_RASPBERRY:
+                    RPI_signal.print_book(barecode, book_data.title)
+            else:
+                if is_raspberry():
+                    RPI_signal.beep(False)
 
 
 if __name__ == "__main__":

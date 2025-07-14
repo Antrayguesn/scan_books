@@ -8,14 +8,14 @@ def detect_barecode(frame, show_frame=False, debug=False, filtre_barecode=('EAN_
 
     ret, barecodes, barecodes_type, points = bc.detectAndDecodeWithType(gray)
 
-    if debug and ret:
+    if debug and ret and show_frame:
         frame = cv.polylines(gray, points.astype(int), True, (0, 255, 0), 3)
         for s, p in zip(barecodes, points):
             if s:
                 frame = cv.putText(frame, s, p[1].astype(int),
                                    cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv.LINE_AA)
 
-    if debug:
+    if show_frame:
         cv.imshow('frame', gray)
 
     if ret:
@@ -26,7 +26,7 @@ def detect_barecode(frame, show_frame=False, debug=False, filtre_barecode=('EAN_
 
 
 def read_from_video_capture(dev_video=0, debug=False, show_frame=False):
-    cap = cv.VideoCapture(dev_video)
+    cap = cv.VideoCapture(int(dev_video))
     if not cap.isOpened():
         print("Cannot open camera")
         exit()
