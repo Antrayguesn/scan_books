@@ -7,8 +7,8 @@ import adafruit_ssd1306
 
 from PIL import Image, ImageDraw, ImageFont
 
+GPIO.cleanup()
 GPIO.setmode(GPIO.BCM)
-
 GPIO.setup(23, GPIO.OUT)
 GPIO.setup(24, GPIO.OUT)
 
@@ -25,7 +25,7 @@ display.fill(0)
 
 draw = ImageDraw.Draw(image)
 
-draw.rectangle((0, 0, display.width, display.height), outline=255, fill=255)
+draw.rectangle((0, 0, display.width, display.height), outline=255, fill=0)
 
 font = ImageFont.load_default()
 
@@ -48,7 +48,10 @@ def print_book(isbn, title):
     x = 0
     padding = 2
     top = padding
+    draw.rectangle((0, 0, display.width, display.height), outline=255, fill=0)
 
+    display.fill(0)
+    
     draw.text((x, top + 0), title, font=font, fill=255)
     draw.text((x, top + 16), isbn, font=font, fill=255)
 

@@ -8,6 +8,7 @@ IS_RASPBERRY = is_raspberry()
 
 if IS_RASPBERRY:
     import RPI_signal
+    import time
 
 
 def capture(dev_video, debug, show_capture):
@@ -60,6 +61,7 @@ def main():
         show_frame = args.show_capture
 
         url_booklyb = args.booklyb_url
+        print("READYYY !!")
 
         for barecode in capture(dev, debug, show_frame):
             if debug:
@@ -67,12 +69,16 @@ def main():
             if barecode:
                 if IS_RASPBERRY:
                     RPI_signal.beep(True)
+                    time.sleep(0.125)
+                    RPI_signal.beep(False)
                 book_data = get_book_data(url_booklyb, barecode)
                 if IS_RASPBERRY:
-                    RPI_signal.print_book(barecode, book_data.title)
-            else:
-                if is_raspberry():
-                    RPI_signal.beep(False)
+                    title = "UNKNOWN"
+                    if book_data:
+                        title = book_data["title"]
+                    RPI_signal.print_book(barecode, title)
+            if IS_RASPBERRY:
+                RPI_signal.beep(False)
 
 
 if __name__ == "__main__":
